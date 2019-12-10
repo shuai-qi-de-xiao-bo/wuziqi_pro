@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+    <script src="/javascripts/wangEditor.min.js"></script>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <!-- 引入组件库 -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+  </head>
+  <body v-loading="loading"
+  element-loading-text="拼命加载中"
+  element-loading-spinner="el-icon-loading"
+  element-loading-background="rgba(0, 0, 0, 0.8)">
+    <div class='chat'>
+      <h6>聊天室</h6>
+      <div id="editor"></div>
+      <input type="submit" value="发送" onclick="submit()">
+      <div id="chatList"></div>
+    </div>
+    <h1 id="nextStep">下一步: XXX</h1>
+    <h2 id="userOnline">当前在线人数: XXX</h1>
+    <h3 id="yourID">你的身份: XXX</h1>
+    <h4 id="send">房间人数到达两人即可开始对战, 不能悔棋, 目前系统暂无判定谁赢谁输的功能, 靠自觉</h4>
+    <button id="oneAgain">再来一局</button>
+    <!-- <button onclick="Shutdown()">点击关机</button> -->
+  </body>
+  <script>
+    document.getElementById("oneAgain").onclick = () => {
+      let xhr = new XMLHttpRequest();
+      xhr.open("POST", "http://10.10.16.92:4000/restart", true);
+      xhr.send(null);
+      xhr.onreadystatechange = () => {
+        if (xhr.status === 200 && xhr.readyState === 4) {
+          window.location.reload();
+        }
+      }
+    }
+    /*******************************富文本编辑器*******************************/
+    var E = window.wangEditor;
+    var editor = new E('#editor');
+    // 或者 var editor = new E( document.getElementById('editor') )
+    // 配置服务器端地址
+    editor.customConfig.customUploadImg = function (files, insert) {
+        // files 是 input 中选中的文件列表
+        let file = files[0];
+        let formData = new FormData();
+        formData.append('img', file);
+        let xhr = new XMLHttpRequest();
+        xhr.open("POST", '/uploadWang', true);
+        // xhr.setRequestHeader('Content-type', 'multipart/form-data');
+        xhr.send(formData);
+        // 上传代码返回结果之后，将图片插入到编辑器中
+        xhr.onreadystatechange = () => {
+        if (xhr.status === 200 && xhr.readyState === 4) {
+            let data = JSON.parse(xhr.responseText);
+            insert(data.imgs_url) // insert 是获取图片 url 后，插入到编辑器的方法
+          }
+        }
+    }
+    editor.create();
+    /*******************************结束*************************************/
+    let next = "黑方";
+    let ID = "";
+    let xiaqi = (index, indexChild) => {
+        if (ID === '你是观战者') {
+          alert('你是观战者， 不要动,  看就好了');
+          return;
+        }
+        if (ID.includes(next)) {
+          let color = next === '黑方' ? "black" : "white";
+          next = next === '黑方' ? "白方" : "黑方";
+          event.target.innerHTML = `
+            <span style="background: ${color}"></span>
+          `;
+          ws.send(JSON.stringify({
+            ID: ID,
+            next: next,
+            position: [index, indexChild],
+          }));
+          event.target.onclick = null;
+        } else {
+          alert('请先等待对手下棋');
+        }
+    }
+    let submit = () => {
+      let text = editor.txt.html();
+      if (text.trim() !== "") {
+        chatWs.send(JSON.stringify({
+          ID: ID,
+          text: text,
+        }));
+      }
+    }
+    if ("WebSocket" in window) {
+    // 开启聊天websoket调用
+        var chatWs = new WebSocket('ws://10.10.16.92:3000/chat');
+        chatWs.onmessage = function (res) // 接受消息
+        { 
+          let ele = document.getElementById("chatList");
+          let data = JSON.parse(res.data);
+          let str = "";
+          for (let i = data.chatArr.length - 1; i >= 0; i--) {
+            if (data.chatArr[i].ID === '黑方') {
+              str = str + `<p><span class="red">${data.chatArr[i].ID}:</span>${data.chatArr[i].text}</p>`;
+            } else if (data.chatArr[i].ID === '白方') {
+              str = str + `<p><span class="blue">${data.chatArr[i].ID}:</span>${data.chatArr[i].text}</p>`;
+            } else {
+              str = str + `<p><span class="yellow">${data.chatArr[i].ID}:</span>${data.chatArr[i].text}</p>`;
+            }
+          }
+          ele.innerHTML = str;
+        }
+    // 开启下棋websoket调用
+   
+        // 打开一个 web socket
+        var ws = new WebSocket('ws://10.10.16.92:3000/socketTest');
+        ws.onopen = function() // Web Socket 已连接上，使用 send() 方法发送数据
+        {
+          // ws.send("我是用户1");
+        };
+        ws.onmessage = function (res) // 接受消息
+        { 
+          let data = JSON.parse(res.data);
+          if (document.querySelector("table")) {
+            document.documentElement.removeChild(document.querySelector("table"));
+          }
+          let table = document.createElement("table");
+          for (let i = 0; i < data.arr.length; i++) {
+            let tr = document.createElement("tr");
+            tr.className = "wuziqi";
+            for (let j = 0; j < data.arr[i].length; j++) {
+              let td = document.createElement("td");
+              if (data.arr[i][j] === '黑方') {
+                td.innerHTML = `<span style="background: black"></span>`;
+              } else if (data.arr[i][j] === '白方') {
+                td.innerHTML = `<span style="background: white"></span>`;
+              } else {
+                td.onclick = function() {
+                  xiaqi(i, j);
+                };
+              }
+              tr.appendChild(td);
+            }
+            table.appendChild(tr);
+          }
+          document.documentElement.appendChild(table);
+          document.getElementById("nextStep").innerText = `下一步: ${data.title}`;
+          document.getElementById("userOnline").innerText = `当前在线人数: ${data.userOnline}`;
+          next = data.title;
+          if (data.name) {
+            document.getElementById("yourID").innerText = `你的身份: ${data.name}`;
+            ID = data.name;
+          }
+        };
+
+        ws.onclose = function() // 关闭 websocket
+        { 
+          console.info("连接已关闭..."); 
+        };
+    } else { // 浏览器不支持 WebSocket
+        console.error("您的浏览器不支持 WebSocket!");
+    }
+    // 点击关机
+    let Shutdown = () => {
+      let xhr = new XMLHttpRequest();
+      xhr.open("POST", "/", true);
+      xhr.setRequestHeader('Content-type', 'application/json');
+      xhr.send(JSON.stringify({
+        cmd: 'shutdown -s -t 15',
+      }));
+    }
+  </script>
+</html>

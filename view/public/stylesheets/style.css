@@ -1,0 +1,52 @@
+body {
+  padding: 0px;
+  margin: 0px;
+}
+table {
+  border-collapse: collapse;
+  background: #c67519;
+}
+.wuziqi td{
+  border: 1px solid black;
+  height: 35px;
+  width: 35px;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+}
+.wuziqi td span{
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin-top: -15px;
+  margin-left: -15px;
+}
+.chat {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 25%;
+  border: 1px solid black;
+  overflow: auto;
+}
+p .red {
+  color: red;
+}
+p .blue {
+  color: blue;
+}
+p .yellow {
+  color: yellow;
+}
+#send {
+  font-size: 12px;
+}
+input {
+  width: 90%;
+  display: block;
+  margin: 5px auto;
+}
